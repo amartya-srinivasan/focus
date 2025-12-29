@@ -11,7 +11,7 @@ class GlobalMusicPlayer:
         self.current_volume = 0.5
         self.playlist = []
         self.current_index = 0
-        self.music_folder = "focus_songs"
+        self.music_folder = "downloaded_music"
         
         # Callback for UI refresh
         self.on_playlist_changed = None

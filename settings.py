@@ -3,6 +3,7 @@ import sys
 import json
 import os
 import subprocess
+import threading
 
 # Initialize pygame
 pygame.init()
@@ -284,7 +285,12 @@ def settings_screen():
         print(f"Error validating user: {e}")
     
     # State
-    current_tab = "account"  # account, websites, database, about
+    current_tab = "account"  # account, websites, database, music, about
+    
+    # Music tab variables
+    download_url = ""
+    download_url_active = False
+    download_status = {"message": ""}  # Use dict so thread can modify it
     blocked_sites = get_blocked_sites(user_id)  # Load at startup, not lazily
     website_input = ""
     website_input_active = False
@@ -301,12 +307,13 @@ def settings_screen():
     tab_width = 200
     tab_height = 60
     tab_spacing = 20
-    tab_x_start = SCREEN_WIDTH // 2 - (4 * tab_width + 3 * tab_spacing) // 2
+    tab_x_start = SCREEN_WIDTH // 2 - (5 * tab_width + 4 * tab_spacing) // 2
     
     account_tab = Button(tab_x_start, tab_y, tab_width, tab_height, "Account")
     websites_tab = Button(tab_x_start + tab_width + tab_spacing, tab_y, tab_width, tab_height, "Websites")
     database_tab = Button(tab_x_start + 2 * (tab_width + tab_spacing), tab_y, tab_width, tab_height, "Database")
-    about_tab = Button(tab_x_start + 3 * (tab_width + tab_spacing), tab_y, tab_width, tab_height, "About")
+    music_tab = Button(tab_x_start + 3 * (tab_width + tab_spacing), tab_y, tab_width, tab_height, "Music")
+    about_tab = Button(tab_x_start + 4 * (tab_width + tab_spacing), tab_y, tab_width, tab_height, "About")
     
     # Content area
     content_y = tab_y + tab_height + 40
@@ -356,6 +363,10 @@ def settings_screen():
                 elif database_tab.is_clicked(mouse_pos, event):
                     current_tab = "database"
                     message = ""
+                elif music_tab.is_clicked(mouse_pos, event):
+                    current_tab = "music"
+                    print("MUSIC TAB CLICKED - current_tab is now:", current_tab)
+                    message = ""
                 elif about_tab.is_clicked(mouse_pos, event):
                     current_tab = "about"
                     message = ""
@@ -375,6 +386,61 @@ def settings_screen():
                                 message = "Error switching account"
                                 message_color = ERROR_RED
                             break
+                
+                # Music tab actions
+                if current_tab == "music":
+                    input_y = content_y + 100
+                    input_box = pygame.Rect(content_x + 50, input_y, content_width - 150, 50)
+                    download_button = Button(content_x + 50, input_y + 70, 200, 50, "Download", BUTTON_SUCCESS, BUTTON_HOVER)
+                    
+                    # Input box click
+                    if input_box.collidepoint(mouse_pos):
+                        download_url_active = True
+                    elif not download_button.rect.collidepoint(mouse_pos):
+                        download_url_active = False
+                    
+                    # Download button
+                    if download_button.is_clicked(mouse_pos, event):
+                        if download_url.strip():
+                            download_status["message"] = "Downloading..."
+                            
+                            def download_song():
+                                # Status updates via dict
+                                try:
+                                    music_folder = os.path.join(os.getcwd(), "downloaded_music")
+                                    if not os.path.exists(music_folder):
+                                        os.makedirs(music_folder)
+                                    
+                                    print("="*60)
+                                    print(f"DOWNLOADING: {download_url}")
+                                    print(f"OUTPUT FOLDER: {music_folder}")
+                                    print("="*60)
+                                    
+                                    # Run without capture_output so we can see real-time progress
+                                    result = subprocess.run(
+                                        ['spotdl', download_url, '--output', music_folder],
+                                        timeout=120
+                                    )
+                                    
+                                    print("="*60)
+                                    if result.returncode == 0:
+                                        download_status["message"] = "Download successful!"
+                                        print("✓ DOWNLOAD COMPLETE!")
+                                    else:
+                                        download_status["message"] = "Download failed"
+                                        print("✗ DOWNLOAD FAILED!")
+                                    print("="*60)
+                                except subprocess.TimeoutExpired:
+                                    download_status["message"] = "Timeout (2 min limit)"
+                                    print("✗ DOWNLOAD TIMEOUT!")
+                                except Exception as e:
+                                    download_status["message"] = "Error downloading"
+                                    print(f"✗ ERROR: {e}")
+                            
+                            thread = threading.Thread(target=download_song, daemon=True)
+                            thread.start()
+                        else:
+                            download_status["message"] = "Enter URL or song name"
                 
                 # Website blocking tab actions
                 if current_tab == "websites":
@@ -407,21 +473,45 @@ def settings_screen():
                                 blocked_sites = get_blocked_sites(user_id)
                             break
                             
-            elif event.type == pygame.KEYDOWN and website_input_active:
-                if event.key == pygame.K_RETURN:
-                    if website_input:
-                        success, msg = add_blocked_site(user_id, website_input)
-                        message = msg
-                        message_color = SUCCESS_GREEN if success else ERROR_RED
-                        if success:
-                            website_input = ""
-                            blocked_sites = get_blocked_sites(user_id)
-                elif event.key == pygame.K_BACKSPACE:
-                    website_input = website_input[:-1]
-                elif event.key == pygame.K_ESCAPE:
-                    website_input_active = False
-                elif len(website_input) < 100:
-                    website_input += event.unicode
+            elif event.type == pygame.KEYDOWN:
+                # Music tab input
+                if current_tab == "music" and download_url_active:
+                    if event.key == pygame.K_RETURN:
+                        download_url_active = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        download_url = download_url[:-1]
+                    else:
+                        if len(download_url) < 200:
+                            download_url += event.unicode
+                
+                # Website tab input
+            elif event.type == pygame.KEYDOWN:
+                # Music tab input
+                if current_tab == "music" and download_url_active:
+                    if event.key == pygame.K_RETURN:
+                        download_url_active = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        download_url = download_url[:-1]
+                    else:
+                        if len(download_url) < 200:
+                            download_url += event.unicode
+                
+                # Website tab input
+                elif website_input_active:
+                    if event.key == pygame.K_RETURN:
+                        if website_input:
+                            success, msg = add_blocked_site(user_id, website_input)
+                            message = msg
+                            message_color = SUCCESS_GREEN if success else ERROR_RED
+                            if success:
+                                website_input = ""
+                                blocked_sites = get_blocked_sites(user_id)
+                    elif event.key == pygame.K_BACKSPACE:
+                        website_input = website_input[:-1]
+                    elif event.key == pygame.K_ESCAPE:
+                        website_input_active = False
+                    elif len(website_input) < 100:
+                        website_input += event.unicode
         
         # Update hover states
         back_button.check_hover(mouse_pos)
@@ -429,6 +519,7 @@ def settings_screen():
         account_tab.check_hover(mouse_pos)
         websites_tab.check_hover(mouse_pos)
         database_tab.check_hover(mouse_pos)
+        music_tab.check_hover(mouse_pos)
         about_tab.check_hover(mouse_pos)
         if current_tab == "websites":
             add_website_button.check_hover(mouse_pos)
@@ -457,11 +548,12 @@ def settings_screen():
         manage_users_button.draw(screen)
         
         # Draw tabs
-        for tab in [account_tab, websites_tab, database_tab, about_tab]:
+        for tab in [account_tab, websites_tab, database_tab, music_tab, about_tab]:
             # Highlight active tab
             if (tab == account_tab and current_tab == "account") or \
                (tab == websites_tab and current_tab == "websites") or \
                (tab == database_tab and current_tab == "database") or \
+               (tab == music_tab and current_tab == "music") or \
                (tab == about_tab and current_tab == "about"):
                 # Draw active tab with highlight
                 pygame.draw.rect(screen, HIGHLIGHT, tab.rect, border_radius=12)
@@ -625,6 +717,85 @@ def settings_screen():
             reconfig_text = small_font.render("To reconfigure database, edit mysql_config.json", True, ACCENT_SILVER)
             screen.blit(reconfig_text, (content_x + 50, y_offset))
             
+        elif current_tab == "music":
+            # Music Downloads
+            content_title = subheader_font.render("Music Downloads", True, HIGHLIGHT)
+            screen.blit(content_title, (content_x + 50, content_y + 30))
+            
+            subtitle = small_font.render("Download songs using Spotify/YouTube URL or song name", True, ACCENT_SILVER)
+            screen.blit(subtitle, (content_x + 50, content_y + 70))
+            
+            # Input box
+            input_y = content_y + 120
+            input_box = pygame.Rect(content_x + 50, input_y, content_width - 150, 50)
+            pygame.draw.rect(screen, INPUT_BG if not download_url_active else HIGHLIGHT, input_box, border_radius=10)
+            pygame.draw.rect(screen, BORDER_COLOR, input_box, 2, border_radius=10)
+            
+            # Input text
+            if download_url:
+                url_text = text_font.render(download_url, True, TEXT_COLOR)
+                screen.blit(url_text, (input_box.x + 15, input_box.y + 12))
+            elif not download_url_active:
+                placeholder = text_font.render("Enter URL or 'Song Name - Artist'", True, ACCENT_SILVER)
+                screen.blit(placeholder, (input_box.x + 15, input_box.y + 12))
+            
+            # Download button
+            download_button = Button(content_x + 50, input_y + 70, 200, 50, "Download", BUTTON_SUCCESS, BUTTON_HOVER)
+            download_button.draw(screen)
+            
+            # Folder info
+            folder_y = input_y + 130
+            folder_label = small_font.render("Download folder:", True, ACCENT_SILVER)
+            screen.blit(folder_label, (content_x + 50, folder_y))
+            
+            music_folder = os.path.join(os.getcwd(), "downloaded_music")
+            folder_path = tiny_font.render(music_folder, True, ACCENT_GOLD)
+            screen.blit(folder_path, (content_x + 50, folder_y + 30))
+            
+            # Status message
+            if download_status["message"]:
+                msg_color = SUCCESS_GREEN if "success" in download_status["message"].lower() else ERROR_RED
+                status = text_font.render(download_status["message"], True, msg_color)
+                screen.blit(status, (content_x + 50, folder_y + 70))
+            
+            # Downloaded songs list
+            songs_y = folder_y + 150
+            songs_title = text_font.render("Downloaded Songs:", True, TEXT_COLOR)
+            screen.blit(songs_title, (content_x + 50, songs_y))
+            
+            # Get list of songs in the music folder
+            music_folder = os.path.join(os.getcwd(), "downloaded_music")
+            try:
+                if os.path.exists(music_folder):
+                    songs = [f for f in os.listdir(music_folder) if f.endswith(('.mp3', '.m4a', '.flac', '.wav'))]
+                    songs.sort()
+                    
+                    if songs:
+                        list_y = songs_y + 40
+                        for i, song in enumerate(songs[:10]):  # Show first 10 songs
+                            song_rect = pygame.Rect(content_x + 50, list_y + i * 35, content_width - 150, 30)
+                            pygame.draw.rect(screen, INPUT_BG, song_rect, border_radius=5)
+                            pygame.draw.rect(screen, BORDER_COLOR, song_rect, 1, border_radius=5)
+                            
+                            # Truncate long filenames
+                            display_name = song if len(song) < 60 else song[:57] + "..."
+                            song_text = tiny_font.render(display_name, True, TEXT_COLOR)
+                            screen.blit(song_text, (song_rect.x + 10, song_rect.y + 7))
+                        
+                        # Show count if more than 10
+                        if len(songs) > 10:
+                            more_text = tiny_font.render(f"...and {len(songs) - 10} more", True, ACCENT_SILVER)
+                            screen.blit(more_text, (content_x + 50, list_y + 10 * 35 + 10))
+                    else:
+                        no_songs = small_font.render("No songs downloaded yet", True, ACCENT_SILVER)
+                        screen.blit(no_songs, (content_x + 50, songs_y + 40))
+                else:
+                    no_folder = small_font.render("Music folder not found", True, ACCENT_SILVER)
+                    screen.blit(no_folder, (content_x + 50, songs_y + 40))
+            except Exception as e:
+                error_text = tiny_font.render(f"Error loading songs: {str(e)}", True, ERROR_RED)
+                screen.blit(error_text, (content_x + 50, songs_y + 40))
+        
         elif current_tab == "about":
             # About
             content_title = subheader_font.render("About Focus Timer", True, HIGHLIGHT)

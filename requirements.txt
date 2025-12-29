@@ -3,3 +3,6 @@ flask-cors==4.0.0
 PyJWT==2.8.0
 mysql-connector-python==8.1.0
 gunicorn==21.2.0
+spotdl
+opencv-python
+threading
