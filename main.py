@@ -1090,6 +1090,48 @@ if __name__ == "__main__":
     print("MAIN.PY STARTED")
     print("="*60)
     
+    # Check if FFmpeg binaries exist, if not run setup
+    if not (os.path.exists("ffmpeg.exe") and os.path.exists("ffplay.exe") and os.path.exists("ffprobe.exe")):
+        print("FFmpeg binaries not found!")
+        print("Running FFmpeg setup for first-time initialization...")
+        print("-"*60)
+        
+        try:
+            # Run setup_ffmpeg.py
+            result = subprocess.run([sys.executable, "setup_ffmpeg.py"], check=True)
+            
+            # Check if setup was successful
+            if not (os.path.exists("ffmpeg.exe") and os.path.exists("ffplay.exe") and os.path.exists("ffprobe.exe")):
+                print("" + "="*60)
+                print("ERROR: FFmpeg setup did not complete successfully!")
+                print("Please run 'python setup_ffmpeg.py' manually.")
+                print("="*60)
+                input("Press Enter to exit...")
+                sys.exit(1)
+            
+            print("" + "="*60)
+            print("FFmpeg setup completed! Starting application...")
+            print("="*60 + "")
+            
+        except FileNotFoundError:
+            print("" + "="*60)
+            print("ERROR: setup_ffmpeg.py not found!")
+            print("Please ensure setup_ffmpeg.py is in the same directory.")
+            print("="*60)
+            input("Press Enter to exit...")
+            sys.exit(1)
+        except subprocess.CalledProcessError:
+            print("" + "="*60)
+            print("ERROR: FFmpeg setup failed!")
+            print("You can manually download FFmpeg from: https://ffmpeg.org/download.html")
+            print("Extract and place ffmpeg.exe, ffplay.exe, ffprobe.exe in this folder.")
+            print("="*60)
+            input("Press Enter to exit...")
+            sys.exit(1)
+        except KeyboardInterrupt:
+            print("Setup cancelled by user.")
+            sys.exit(1)
+    
     # Check if session_active.flag exists
     # If NO flag = Initial launch from batch file (delete old session, require login)
     # If flag EXISTS = Restart from timer/settings/analytics (keep session)
