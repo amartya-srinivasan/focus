@@ -1,5 +1,6 @@
-# focus
-A project to help lock in.
+# Focus Timer
+
+A comprehensive productivity application built with Python and Pygame that helps users manage their time effectively using the Pomodoro technique, combined with website blocking, task management, and analytics tracking.
 
 ## Table of Contents
 
@@ -70,6 +71,23 @@ pip install pygame==2.6.1
 pip install mysql-connector-python
 pip install opencv-python
 ```
+
+### Step 2.5: Download FFmpeg Binaries
+
+FFmpeg is required for video background playback. Run the automated setup script:
+
+```bash
+python setup_ffmpeg.py
+```
+
+This script will:
+- Download FFmpeg binaries (~100MB)
+- Extract the required executables (ffmpeg.exe, ffplay.exe, ffprobe.exe)
+- Place them in your project directory
+- Clean up temporary files
+
+**Alternative Manual Setup:**
+If the script fails, manually download FFmpeg from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) and place the three .exe files in your project folder.
 
 ### Step 3: Install and Configure MySQL
 
