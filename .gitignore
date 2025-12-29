@@ -1,0 +1,28 @@
+# Python 
+__pycache__/ 
+*.py[cod] 
+*$py.class 
+*.so 
+.Python 
+venv/ 
+ENV/ 
+.env 
+# MySQL 
+mysql_config.json 
+# Session files 
+current_user.txt 
+session_active.flag 
+blocked_sites.txt 
+hosts.bak 
+# IDE 
+.vscode/ 
+.idea/ 
+*.swp 
+*.swo 
+# OS 
+.DS_Store 
+Thumbs.db 
+desktop.ini 
+ffplay.exe 
+ffmpeg.exe 
+ffprobe.exe 
